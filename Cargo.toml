@@ -1,0 +1,8 @@
+[package]
+name = "chip-u8"
+version = "0.1.0"
+authors = ["Jesús Espino <jespinog@gmail.com>"]
+
+[dependencies]
+rand = "0.3"
+sdl2 = "0.16"
