@@ -2,12 +2,9 @@ use rand::Rng;
 use rand;
 use std::io::prelude::*;
 use std::fs::File;
+use ui::SdlUi;
 
-pub trait Screen {
-    fn draw_screen(&mut self, data: [bool; 64 * 32]);
-}
-
-pub struct ChipU8 {
+pub struct ChipU8<'a> {
     regs: [u8; 16],
     i: u16,
     pc: u16,
@@ -18,7 +15,8 @@ pub struct ChipU8 {
     delay_timer: u8,
     sound_timer: u8,
     pub keys: [bool; 16],
-    pub draw_flag: bool
+    pub draw_flag: bool,
+    ui: SdlUi<'a>,
 }
 
 #[derive(Debug)]
@@ -62,10 +60,10 @@ enum Opcode {
 }
 
 
-impl ChipU8 {
+impl<'a> ChipU8<'a> {
     // fn bincode_to_opcode(bincode: u16) -> Opcode {
     // }
-    pub fn new() -> ChipU8 {
+    pub fn new() -> ChipU8<'a> {
         let mut cpu = ChipU8 {
             regs: [0; 16],
             i: 0,
@@ -78,6 +76,7 @@ impl ChipU8 {
             sound_timer: 0,
             keys: [false; 16],
             draw_flag: false,
+            ui: SdlUi::new()
         };
         cpu.load_font();
         cpu
@@ -246,7 +245,11 @@ impl ChipU8 {
                 self.regs[reg as usize] = self.delay_timer;
             },
             Opcode::GetKeypress(reg) => {
-                // TODO
+                if self.ui.last_key.is_some() {
+                    self.regs[reg as usize] = self.ui.last_key.unwrap();
+                } else {
+                    self.pc -= 2;
+                }
             },
             Opcode::SetDelayTimer(reg) => {
                 self.delay_timer = self.regs[reg as usize];
@@ -275,6 +278,7 @@ impl ChipU8 {
             },
             _ => ()
         }
+        self.ui.last_key = None;
     }
 
     fn fetch_op(&mut self) -> Opcode {
@@ -342,15 +346,19 @@ impl ChipU8 {
         }
         if self.sound_timer > 0 {
             if self.sound_timer == 1 {
-                println!("BEEP!");
+                self.ui.beep();
             }
             self.sound_timer -= 1;
         }
     }
 
-    pub fn draw(&self, renderer: &mut Screen) {
+    pub fn draw(&mut self) {
         if self.draw_flag {
-            renderer.draw_screen(self.gfx);
+            self.ui.draw_screen(self.gfx);
         }
+    }
+
+    pub fn get_keys(&mut self) -> bool {
+        self.ui.update_keys(&mut self.keys)
     }
 }
