@@ -1,4 +1,3 @@
-use rand::Rng;
 use rand;
 use std::io::prelude::*;
 use std::fs::File;
@@ -202,8 +201,7 @@ impl<'a> ChipU8<'a> {
                 self.i = value;
             },
             Opcode::Random(reg, value) => {
-                let mut rng = rand::thread_rng();
-                let random_value: u8 = rng.gen();
+                let random_value: u8 = rand::random::<u8>();
                 self.regs[reg as usize] = random_value & value;
             },
             Opcode::DrawSprite(reg1, reg2, rows) => {
