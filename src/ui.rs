@@ -2,6 +2,9 @@ use sdl2::rect::Rect;
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
 use sdl2;
+use std::io;
+use std::io::prelude::*;
+
 
 pub struct SdlUi<'a> {
     event_pump: sdl2::EventPump,
@@ -48,7 +51,8 @@ impl<'a> SdlUi<'a> {
 	}
 
 	pub fn beep(&mut self) {
-        println!("BEEP");
+        print!("{}", 7 as char);
+        let _ = io::stdout().flush();
 	}
 
 	pub fn update_keys(&mut self, keys: &mut [bool; 16]) -> bool {
