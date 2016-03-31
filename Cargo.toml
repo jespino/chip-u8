@@ -6,3 +6,4 @@ authors = ["Jesús Espino <jespinog@gmail.com>"]
 [dependencies]
 rand = "0.3"
 sdl2 = "0.16"
+docopt = "0.6.78"
