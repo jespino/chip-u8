@@ -2,6 +2,7 @@ use rand;
 use std::io::prelude::*;
 use std::fs::File;
 use ui::SdlUi;
+use ops::Opcode;
 
 pub struct ChipU8<'a> {
     regs: [u8; 16],
@@ -13,56 +14,17 @@ pub struct ChipU8<'a> {
     gfx: [bool; 64 * 32],
     delay_timer: u8,
     sound_timer: u8,
-    pub keys: [bool; 16],
-    pub draw_flag: bool,
+    keys: [bool; 16],
+    draw_flag: bool,
     ui: SdlUi<'a>,
-}
-
-#[derive(Debug)]
-enum Opcode {
-    Rca(u16),
-    Clear,
-    Return,
-    Jump(u16),
-    JumpPlus(u16),
-    Call(u16),
-    SkipEqVal(u8, u8),
-    SkipNotEqVal(u8, u8),
-    SkipEq(u8, u8),
-    SetReg(u8, u8),
-    AddVal(u8, u8),
-    CopyReg(u8, u8),
-    And(u8, u8),
-    Or(u8, u8),
-    Xor(u8, u8),
-    Add(u8, u8),
-    Substract(u8, u8),
-    ShiftRight(u8),
-    MinusReg(u8, u8),
-    ShiftLeft(u8),
-    SkipNotEq(u8, u8),
-    SetI(u16),
-    Random(u8, u8),
-    DrawSprite(u8, u8, u8),
-    SkipIfKeyNotPressed(u8),
-    SkipIfKeyPressed(u8),
-    GetDelayTimer(u8),
-    GetKeypress(u8),
-    SetDelayTimer(u8),
-    SetSoundTimer(u8),
-    AddI(u8),
-    SetISprite(u8),
-    StoreBCD(u8),
-    Store(u8),
-    Restore(u8),
-    Unknown(u16),
+    debug: bool,
 }
 
 
 impl<'a> ChipU8<'a> {
     // fn bincode_to_opcode(bincode: u16) -> Opcode {
     // }
-    pub fn new() -> ChipU8<'a> {
+    pub fn new(debug: bool) -> ChipU8<'a> {
         let mut cpu = ChipU8 {
             regs: [0; 16],
             i: 0,
@@ -75,7 +37,8 @@ impl<'a> ChipU8<'a> {
             sound_timer: 0,
             keys: [false; 16],
             draw_flag: false,
-            ui: SdlUi::new()
+            ui: SdlUi::new(),
+            debug: debug,
         };
         cpu.load_font();
         cpu
@@ -279,54 +242,11 @@ impl<'a> ChipU8<'a> {
         self.ui.last_key = None;
     }
 
-    fn fetch_op(&mut self) -> Opcode {
+    pub fn fetch_op(&mut self) -> Opcode {
         let first_byte = self.mem[self.pc as usize];
         let second_byte = self.mem[(self.pc + 1) as usize];
-        let op = (
-            (first_byte & 0xF0) >> 4,
-            first_byte & 0x0F,
-            (second_byte & 0xF0) >> 4,
-            second_byte & 0x0F,
-        );
-
-        match op {
-            (0x0, 0x0, 0xE, 0x0) => Opcode::Clear,
-            (0x0, 0x0, 0xE, 0xE) => Opcode::Return,
-            (0x0, n1, n2, n3) => Opcode::Rca(((n1 as u16) << 8) + ((n2 as u16) << 4) + (n3 as u16)),
-            (0x1, n1, n2, n3) => Opcode::Jump(((n1 as u16) << 8) + ((n2 as u16) << 4) + (n3 as u16)),
-            (0x2, n1, n2, n3) => Opcode::Call(((n1 as u16) << 8) + ((n2 as u16) << 4) + (n3 as u16)),
-            (0x3, x, n1, n2) => Opcode::SkipEqVal(x, (n1 << 4) + n2),
-            (0x4, x, n1, n2) => Opcode::SkipNotEqVal(x, (n1 << 4) + n2),
-            (0x5, x, y, 0x0) => Opcode::SkipEq(x, y),
-            (0x6, x, n1, n2) => Opcode::SetReg(x, (n1 << 4) + n2),
-            (0x7, x, n1, n2) => Opcode::AddVal(x, (n1 << 4) + n2),
-            (0x8, x, y, 0x0) => Opcode::CopyReg(x, y),
-            (0x8, x, y, 0x1) => Opcode::Or(x, y),
-            (0x8, x, y, 0x2) => Opcode::And(x, y),
-            (0x8, x, y, 0x3) => Opcode::Xor(x, y),
-            (0x8, x, y, 0x4) => Opcode::Add(x, y),
-            (0x8, x, y, 0x5) => Opcode::Substract(x, y),
-            (0x8, x, _, 0x6) => Opcode::ShiftRight(x),
-            (0x8, x, y, 0x7) => Opcode::MinusReg(x, y),
-            (0x8, x, _, 0xE) => Opcode::ShiftLeft(x),
-            (0x9, x, y, 0x0) => Opcode::SkipNotEq(x, y),
-            (0xA, n1, n2, n3) => Opcode::SetI(((n1 as u16) << 8) + ((n2 as u16) << 4) + (n3 as u16)),
-            (0xB, n1, n2, n3) => Opcode::JumpPlus(((n1 as u16) << 8) + ((n2 as u16) << 4) + (n3 as u16)),
-            (0xC, x, n1, n2) => Opcode::Random(x, (n1 << 4) + n2),
-            (0xD, x, y, n) => Opcode::DrawSprite(x, y, n),
-            (0xE, x, 0x9, 0xE) => Opcode::SkipIfKeyPressed(x),
-            (0xE, x, 0xA, 0x1) => Opcode::SkipIfKeyNotPressed(x),
-            (0xF, x, 0x0, 0x7) => Opcode::GetDelayTimer(x),
-            (0xF, x, 0x0, 0xA) => Opcode::GetKeypress(x),
-            (0xF, x, 0x1, 0x5) => Opcode::SetDelayTimer(x),
-            (0xF, x, 0x1, 0x8) => Opcode::SetSoundTimer(x),
-            (0xF, x, 0x1, 0xE) => Opcode::AddI(x),
-            (0xF, x, 0x2, 0x9) => Opcode::SetISprite(x),
-            (0xF, x, 0x3, 0x3) => Opcode::StoreBCD(x),
-            (0xF, x, 0x5, 0x5) => Opcode::Store(x),
-            (0xF, x, 0x6, 0x5) => Opcode::Restore(x),
-            (a, b, c, d) => Opcode::Unknown(((a as u16) << 12) + ((b as u16) << 8) + ((c as u16) << 4) + (d as u16)),
-        }
+        let binary_op = ((first_byte as u16) << 8) + (second_byte as u16);
+        ::ops::binary_to_opcode(binary_op)
     }
 
     pub fn load(&mut self, path: &str) {
@@ -337,6 +257,9 @@ impl<'a> ChipU8<'a> {
 
     pub fn cycle(&mut self) {
         let op = self.fetch_op();
+        if self.debug {
+            println!("{:?}", op);
+        }
         self.pc += 2;
         self.run_op(op);
         if self.delay_timer > 0 {
