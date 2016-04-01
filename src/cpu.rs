@@ -228,7 +228,7 @@ impl<'a> ChipU8<'a> {
                 self.mem[self.i as usize + 2 as usize] = value % 10;
             },
             Opcode::Store(reg) => {
-                for index in 0..reg {
+                for index in 0..reg+1 {
                     self.mem[self.i as usize + index as usize] = self.regs[index as usize].clone();
                 }
             },
